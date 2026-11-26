@@ -14,8 +14,4 @@ for _, mode in ipairs({ "n", "x" }) do
   vim.keymap.set(mode, "<Plug>(AIExplain)", function()
     require("ai_explain").explain({ visual = visual })
   end, { silent = true, desc = "Explain code with AI" })
-  if not vim.g.ai_explain_disable_maps and vim.fn.maparg(",ae", mode) == ""
-      and vim.fn.hasmapto("<Plug>(AIExplain)", mode) == 0 then
-    vim.keymap.set(mode, ",ae", "<Plug>(AIExplain)", { silent = true, desc = "Explain code with AI" })
-  end
 end

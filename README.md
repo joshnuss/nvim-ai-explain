@@ -4,21 +4,29 @@ Explain code in a split pane using Codex or Claude Code.
 
 Requires Neovim 0.9+ and a signed-in CLI.
 
-```sh
-./try.sh                              # Codex, no install
-AI_EXPLAIN_PROVIDER=claude ./try.sh   # Claude
-```
-
-- `,ae` explains the selection or enclosing function (current line as fallback). LSP supplies references when available.
+- `:AIExplain` explains the enclosing function or current line. Pass a range to explain selected lines. LSP supplies references when available.
 - `Ctrl-w j` enters the split. `q` closes it.
 
 ```lua
 require("ai_explain").setup({
   provider = "codex",      -- or "claude"
-  model = "gpt-6.2-sol",   -- omit for CLI default
+  model = "gpt-6.2-astra", -- omit for CLI default
+  reasoning_effort = "medium",
   fast_mode = true,        -- optional, requires provider support
   view = "split",          -- or "float"
 })
 ```
 
-Fast mode may cost more. Local CLI session history is disabled. Provider retention applies.
+To map a key shortcut:
+
+```lua
+-- adds shortcut to <leader>a
+vim.keymap.set({ "n", "x" }, "<leader>a", "<Plug>(AIExplain)")
+```
+
+## Development usage
+
+```sh
+./try.sh                              # Codex, no install
+AI_EXPLAIN_PROVIDER=claude ./try.sh   # Claude
+```

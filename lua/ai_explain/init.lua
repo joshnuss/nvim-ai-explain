@@ -16,20 +16,30 @@ function M.setup(opts)
   local view = opts.view or config.view
   assert(commands[provider], "ai_explain: provider must be codex or claude")
   assert(view == "float" or view == "split", "ai_explain: view must be float or split")
-  local model, fast = opts.model, opts.fast_mode
+  local model, fast, effort = opts.model, opts.fast_mode, opts.reasoning_effort
   if provider == config.provider then
     if model == nil then model = config.model end
     if fast == nil then fast = config.fast_mode end
+    if effort == nil then effort = config.reasoning_effort end
   end
   assert(model == nil or model == false or (type(model) == "string" and model:match("%S")),
     "ai_explain: model must be a nonblank model name or false")
   assert(fast == nil or type(fast) == "boolean", "ai_explain: fast_mode must be a boolean")
-  config = { provider = provider, view = view, model = model, fast_mode = fast }
+  assert(effort == nil or effort == false or (type(effort) == "string" and effort:match("^%l+$")),
+    "ai_explain: reasoning_effort must be a lowercase effort name or false")
+  config = { provider = provider, view = view, model = model, fast_mode = fast, reasoning_effort = effort }
 end
 
 local function command(opts)
   local args = vim.list_extend({}, commands[opts.provider])
   if opts.model then vim.list_extend(args, { "--model", opts.model }) end
+  if opts.reasoning_effort then
+    if opts.provider == "codex" then
+      vim.list_extend(args, { "-c", ('model_reasoning_effort="%s"'):format(opts.reasoning_effort) })
+    else
+      vim.list_extend(args, { "--effort", opts.reasoning_effort })
+    end
+  end
   if opts.fast_mode then
     if opts.provider == "codex" then
       vim.list_extend(args, { "-c", 'service_tier="fast"' })
