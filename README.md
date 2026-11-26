@@ -1,12 +1,19 @@
-# NVIM AI Explain
+# Neovim AI Explain Plugin
 
 Explain code in a split pane using Codex or Claude Code.
-
 Requires Neovim 0.9+ and a signed-in CLI.
+
+## Demo
+
+https://github.com/user-attachments/assets/237a499d-f022-4bf5-ad6a-30024b5fc297
+
+## Usage
 
 - `:AISummary` explains the enclosing function, current line, or supplied range from the snippet alone.
 - `:AIUsage` searches the project for uses and cites `file:line` examples, using LSP references when available.
 - `Ctrl-w j` enters the split. `q` closes it.
+
+## Configure
 
 ```lua
 require("ai_explain").setup({
