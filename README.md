@@ -4,7 +4,8 @@ Explain code in a split pane using Codex or Claude Code.
 
 Requires Neovim 0.9+ and a signed-in CLI.
 
-- `:AIExplain` explains the enclosing function or current line. Pass a range to explain selected lines. LSP supplies references when available.
+- `:AISummary` explains the enclosing function, current line, or supplied range from the snippet alone.
+- `:AIUsage` searches the project for uses and cites `file:line` examples, using LSP references when available.
 - `Ctrl-w j` enters the split. `q` closes it.
 
 ```lua
@@ -21,7 +22,8 @@ To map a key shortcut:
 
 ```lua
 -- adds shortcut to <leader>a
-vim.keymap.set({ "n", "x" }, "<leader>a", "<Plug>(AIExplain)")
+vim.keymap.set({ "n", "x" }, "<leader>a", "<Plug>(AISummary)")
+vim.keymap.set({ "n", "x" }, "<leader>u", "<Plug>(AIUsage)")
 ```
 
 ## Development usage

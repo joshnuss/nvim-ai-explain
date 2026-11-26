@@ -26,7 +26,7 @@ function M.open(kind, provider)
     local height = math.max(1, math.min(16, math.floor(vim.o.lines * 0.45)))
     win = api.nvim_open_win(buf, true, {
       relative = "cursor", row = 1, col = 0, width = width, height = height,
-      style = "minimal", border = "rounded", title = " AI Explain ", title_pos = "center",
+      style = "minimal", border = "rounded", title = " Explanation ", title_pos = "center",
     })
   end
   vim.bo[buf].bufhidden = "wipe"

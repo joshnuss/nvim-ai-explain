@@ -8,6 +8,7 @@ for _, provider in ipairs({ "codex", "claude" }) do
   local path = tmp .. "/" .. provider
   vim.fn.writefile({
     "#!/bin/sh",
+    [[pwd > "$AI_EXPLAIN_TEST/cwd"]],
     [[printf '%s\n' "$@" > "$AI_EXPLAIN_TEST/args"]],
     [[cat > "$AI_EXPLAIN_TEST/prompt"]],
     [[sleep 0.4]],
@@ -35,10 +36,15 @@ local function test()
     assert(vim.fn.maparg(",ae", mode) == "")
   end
   vim.g.mapleader = ","
-  vim.keymap.set({ "n", "x" }, "<leader>a", "<Plug>(AIExplain)")
+  vim.keymap.set({ "n", "x" }, "<leader>a", "<Plug>(AISummary)")
+  vim.keymap.set({ "n", "x" }, "<leader>u", "<Plug>(AIUsage)")
   vim.fn.writefile({ "## Test explanation", "", "- **Doubles** the `input`.",
     "", "```lua", "  -- **literal**", "```" }, tmp .. "/reply")
   local src = api.nvim_get_current_buf()
+  local project = tmp .. "/sample project"
+  vim.fn.mkdir(project .. "/.git", "p")
+  vim.fn.mkdir(project .. "/src", "p")
+  api.nvim_buf_set_name(src, project .. "/src/math.lua")
   api.nvim_buf_set_lines(src, 0, -1, false, {
     "local function twice(n)", "  return n * 2", "end", "print(twice(3))",
   })
@@ -47,11 +53,13 @@ local function test()
 
   -- Deterministic reference locations, exercising the same request as an
   -- attached server, including the symbol position and declaration filter.
+  local reference_requests = 0
   local request = function(method, params, callback)
+    reference_requests = reference_requests + 1
     assert(method == "textDocument/references" and not params.context.includeDeclaration)
     assert(params.position.line == 0 and params.position.character == 15)
     vim.schedule(function()
-      callback(nil, { { uri = vim.uri_from_fname(vim.fn.getcwd() .. "/sample.lua"),
+      callback(nil, { { uri = vim.uri_from_fname(project .. "/sample.lua"),
         range = { start = { line = 3, character = 6 } } } })
     end)
     return true, 1
@@ -85,12 +93,18 @@ local function test()
   end)
   assert(not read("args"):find("--model", 1, true) and not read("args"):find("service_tier", 1, true))
   assert(read("args"):find("--ephemeral", 1, true))
+  assert(read("args"):find("--sandbox\nread-only", 1, true))
+  assert(reference_requests == 0 and not read("prompt"):find("## How it's used", 1, true))
+  assert(read("args"):find("features.shell_tool=false", 1, true))
   assert(read("prompt"):find("How does twice work?", 1, true))
-  assert(read("prompt"):find("sample.lua:4", 1, true))
   assert(not read("prompt"):find("print(twice", 1, true))
   require("ai_explain").setup({ model = "gpt-6.2-astra", reasoning_effort = "medium", fast_mode = true })
-  keys(",a")
+  vim.cmd("AIUsage")
   assert(vim.wait(2000, function() return read("args"):find('service_tier="fast"', 1, true) end))
+  assert(vim.wait(2000, function() return read("prompt"):find("sample.lua:4", 1, true) end))
+  assert(read("cwd") == project and read("prompt"):find("Buffer location: src/math.lua:2", 1, true))
+  assert(reference_requests == 1 and read("prompt"):find("## How it's used", 1, true))
+  assert(not read("args"):find("features.shell_tool=false", 1, true))
   assert(read("args"):find("--model\ngpt-6.2-astra\n", 1, true))
   assert(read("args"):find('-c\nmodel_reasoning_effort="medium"\n', 1, true))
   assert(#api.nvim_tabpage_list_wins(0) == 2 and not api.nvim_buf_is_valid(panel))
@@ -105,11 +119,12 @@ local function test()
   vim.fn.setreg('"', { points_to = "a" })
   api.nvim_buf_set_lines(src, 0, -1, false, { "aé中 xyz", "defg" })
   api.nvim_win_set_cursor(0, { 1, 1 })
-  keys("vl,a")
+  keys("vl,u")
   assert(api.nvim_win_get_config(0).relative ~= "")
   answer("Test explanation")
   assert(read("prompt"):match("Source:\né中$"))
   assert(read("args"):find("--no-session-persistence", 1, true))
+  assert(read("args"):find("--tools\nRead,Glob,Grep", 1, true) and read("cwd") == project)
   assert(read("args"):find("--model\nopus\n", 1, true))
   assert(read("args"):find('--settings\n{"fastMode":true}', 1, true))
   assert(vim.fn.getreg("z") == "saved" and vim.fn.getreginfo('"').points_to == "a")
@@ -118,20 +133,21 @@ local function test()
   require("ai_explain").setup({ model = false, fast_mode = false })
   vim.bo.filetype = "no_such_parser"
   api.nvim_win_set_cursor(0, { 2, 1 })
-  vim.cmd("AIExplain")
+  vim.cmd("AISummary")
   answer("Test explanation")
   assert(read("prompt"):match("Source:\ndefg$"))
+  assert(read("args"):match("%-%-tools\n$"))
   assert(not read("args"):find("--settings", 1, true) and not read("args"):find("--model", 1, true))
   keys("q")
   vim.env.AI_EXPLAIN_FAIL = "1"
-  vim.cmd("1,2AIExplain!")
+  vim.cmd("1,2AISummary!")
   assert(api.nvim_get_current_buf() == src)
   keys("<C-w>j")
   answer("exited with code 7")
   assert(api.nvim_buf_get_lines(0, 1, 2, false)[1] == "sign in first")
   assert(read("prompt"):match("Source:\naé中 xyz\ndefg$"))
   keys("q")
-  vim.cmd("AIExplain")
+  vim.cmd("AISummary")
   local cancelled = api.nvim_get_current_buf()
   keys("q")
   vim.wait(500, function() return false end)

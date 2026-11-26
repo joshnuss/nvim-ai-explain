@@ -1,6 +1,31 @@
 local M = {}
 local api = vim.api
 
+local function directory_prefix(dir)
+  return dir:gsub("/$", "") .. "/"
+end
+
+local function display_path(path, root)
+  local prefix = directory_prefix(root)
+  return vim.startswith(path, prefix) and path:sub(#prefix + 1) or path
+end
+
+function M.project(buf)
+  local cwd = vim.fn.getcwd()
+  local path = api.nvim_buf_get_name(buf)
+  if vim.bo[buf].buftype ~= "" then path = "" end
+  local dir = path ~= "" and vim.fs.dirname(path) or cwd
+  local marker = vim.fs.find(".git", { path = dir, upward = true })[1]
+  if not marker then
+    marker = vim.fs.find({ "pyproject.toml", "package.json", "Cargo.toml", "go.mod", "Gemfile" },
+      { path = dir, upward = true })[1]
+  end
+  local root = marker and vim.fs.dirname(marker) or (vim.startswith(path, directory_prefix(cwd)) and cwd or dir)
+  -- A new buffer may name a file in a directory that does not exist yet.
+  if vim.fn.isdirectory(root) == 0 then root = cwd end
+  return root, display_path(path, root)
+end
+
 -- Common Tree-sitter declaration nodes. Walk up so nested functions win.
 local functions = {}
 for _, kind in ipairs({
@@ -82,19 +107,19 @@ local function character_offset(line, col, encoding)
   return encoding == "utf-32" and utf32 or utf16
 end
 
-local function locations(result)
+local function locations(result, root)
   if #result == 0 then return "The language server reported no references." end
   local lines = { ("Language server reported %d reference(s), excluding the declaration:"):format(#result) }
   for i = 1, math.min(15, #result) do
     local loc = result[i]
-    local path = vim.fn.fnamemodify(vim.uri_to_fname(loc.uri), ":~:.")
+    local path = display_path(vim.uri_to_fname(loc.uri), root)
     lines[#lines + 1] = ("%s:%d"):format(path, loc.range.start.line + 1)
   end
   if #result > 15 then lines[#lines + 1] = "(showing the first 15)" end
   return table.concat(lines, "\n")
 end
 
-function M.references(buf, fn, done)
+function M.references(buf, fn, root, done)
   local client = reference_client(buf)
   if not client then done("No language server with reference support is attached."); return end
   local line = api.nvim_buf_get_lines(buf, fn.row, fn.row + 1, false)[1]
@@ -112,7 +137,7 @@ function M.references(buf, fn, done)
   end
   local function receive(err, result)
     if finished then return end
-    finish(not err and type(result) == "table" and locations(result) or "Reference lookup failed.")
+    finish(not err and type(result) == "table" and locations(result, root) or "Reference lookup failed.")
   end
   local ok, id
   if modern then
