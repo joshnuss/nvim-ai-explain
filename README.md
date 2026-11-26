@@ -12,8 +12,8 @@ Requires Neovim 0.9+ and a signed-in CLI.
 require("ai_explain").setup({
   provider = "codex",      -- or "claude"
   model = "gpt-6.2-astra", -- omit for CLI default
-  reasoning_effort = "medium",
-  fast_mode = true,        -- optional, requires provider support
+  reasoning = "medium",
+  fast = true,        -- optional, requires provider support
   view = "split",          -- or "float"
 })
 ```
